@@ -25,6 +25,11 @@ type Delta struct {
 	Times        Times       `json:"times"`
 }
 
+// Valid reports whether the delta could be calculated.
+func (d Delta) Valid() bool {
+	return !d.Times.Recent.IsZero()
+}
+
 func (d Delta) Display(units config.Unit) string {
 	if units == config.UnitMmol {
 		mmol := d.Mgdl.Mmol()

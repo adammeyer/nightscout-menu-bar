@@ -36,9 +36,13 @@ func (s *Socket) Format(last *nightscout.Properties) string {
 
 	switch data.Socket.Format {
 	case config.SocketFormatCSV:
+		var delta string
+		if last.Delta.Valid() {
+			delta = last.Delta.Display(data.Units)
+		}
 		return last.Bgnow.DisplayBg(data.Units) + "," +
 			last.Bgnow.Arrow(data.Arrows) + "," +
-			last.Delta.Display(data.Units) + "," +
+			delta + "," +
 			last.Bgnow.Mills.Relative(data.Advanced.RoundAge) + "," +
 			strconv.Itoa(int(time.Since(last.Bgnow.Mills.Time).Seconds())) +
 			"\n"

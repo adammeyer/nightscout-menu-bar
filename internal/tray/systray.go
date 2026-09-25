@@ -13,7 +13,6 @@ import (
 	"gabe565.com/nightscout-menu-bar/internal/autostart"
 	"gabe565.com/nightscout-menu-bar/internal/config"
 	"gabe565.com/nightscout-menu-bar/internal/dynamicicon"
-	"gabe565.com/nightscout-menu-bar/internal/fetch"
 	"gabe565.com/nightscout-menu-bar/internal/ticker"
 	"gabe565.com/nightscout-menu-bar/internal/tray/items"
 	"gabe565.com/nightscout-menu-bar/internal/tray/messages"
@@ -82,19 +81,9 @@ func (t *Tray) onReady(ctx context.Context) func() {
 			select {
 			case <-ctx.Done():
 				systray.Quit()
-			case <-t.items.OpenNightscout.ClickedCh:
-				u, err := fetch.BuildURLWithToken(t.config.Data())
-				if err != nil {
-					t.displayError(err)
-					return
-				}
-				slog.Debug("Opening Nightscout", "url", u)
-				if err := open.Run(u.String()); err != nil {
-					t.displayError(err)
-				}
-			case <-t.items.Preferences.URL.ClickedCh:
+			case <-t.items.Preferences.Username.ClickedCh:
 				go func() {
-					if err := t.items.Preferences.URL.Prompt(); err != nil {
+					if err := t.items.Preferences.Username.Prompt(); err != nil {
 						t.displayError(err)
 					}
 				}()
@@ -102,9 +91,9 @@ func (t *Tray) onReady(ctx context.Context) func() {
 				if err := open.Run(AboutURL); err != nil {
 					t.displayError(err)
 				}
-			case <-t.items.Preferences.Token.ClickedCh:
+			case <-t.items.Preferences.Password.ClickedCh:
 				go func() {
-					if err := t.items.Preferences.Token.Prompt(); err != nil {
+					if err := t.items.Preferences.Password.Prompt(); err != nil {
 						t.displayError(err)
 					}
 				}()

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"time"
 
@@ -50,10 +51,6 @@ func (conf *Config) Load() error {
 	// Parse config file
 	parser := TOMLParser{}
 	if err := k.Load(rawbytes.Provider(cfgContents), parser); err != nil {
-		return err
-	}
-
-	if err := migrateConfig(k); err != nil {
 		return err
 	}
 
@@ -112,8 +109,17 @@ func (conf *Config) Write(data Data) error {
 			logger.Info("Updating config")
 		}
 
-		if err := os.WriteFile(conf.File, newCfg, 0o666); err != nil {
+		if err := os.WriteFile(conf.File, newCfg, 0o600); err != nil {
 			return err
+		}
+	}
+
+	// The config contains the LibreLinkUp password, so keep it private to the current user.
+	if runtime.GOOS != "windows" {
+		if stat, err := os.Stat(conf.File); err == nil && stat.Mode().Perm()&0o077 != 0 {
+			if err := os.Chmod(conf.File, stat.Mode().Perm()&0o700); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -157,15 +163,4 @@ func (conf *Config) AddCallback(fn func()) int {
 
 func (conf *Config) RemoveCallback(idx int) {
 	conf.callbacks = slices.Delete(conf.callbacks, idx, idx+1)
-}
-
-func migrateConfig(k *koanf.Koanf) error {
-	if k.Exists("interval") {
-		slog.Info("Migrating config: interval to advanced.fallback-interval")
-		if err := k.Set("advanced.fallback-interval", k.Get("interval")); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

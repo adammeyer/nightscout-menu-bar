@@ -9,9 +9,10 @@ import (
 	"gabe565.com/nightscout-menu-bar/internal/config"
 )
 
+// Libre sensors report readings from 40 to 500 mg/dL.
 const (
 	LowReading  = 39
-	HighReading = 401
+	HighReading = 501
 )
 
 type Reading struct {
@@ -58,8 +59,10 @@ func (r *Reading) String(data config.Data) string {
 	var result strings.Builder
 
 	result.WriteString(r.DisplayBg(data.Units))
-	result.WriteRune(' ')
-	result.WriteString(r.Arrow(data.Arrows))
+	if len(r.Sgvs) != 0 {
+		result.WriteRune(' ')
+		result.WriteString(r.Arrow(data.Arrows))
+	}
 
 	if rel := r.Mills.Relative(data.Advanced.RoundAge); rel != "" {
 		result.WriteString(" [")
@@ -87,10 +90,10 @@ func (r *Reading) UnmarshalJSON(bytes []byte) error {
 }
 
 func (r *Reading) DisplayBg(units config.Unit) string {
-	switch r.Last {
-	case LowReading:
+	switch {
+	case r.Last > 0 && r.Last <= LowReading:
 		return "LOW"
-	case HighReading:
+	case r.Last >= HighReading:
 		return "HIGH"
 	}
 

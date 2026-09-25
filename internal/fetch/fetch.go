@@ -2,47 +2,44 @@ package fetch
 
 import (
 	"context"
-	"crypto/sha1" //nolint:gosec
-	"encoding/hex"
-	"encoding/json"
+	"crypto/sha256"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
-	"net/url"
-	"path"
 	"sync"
 	"time"
 
 	"gabe565.com/nightscout-menu-bar/internal/config"
+	"gabe565.com/nightscout-menu-bar/internal/librelinkup"
 	"gabe565.com/nightscout-menu-bar/internal/nightscout"
-	"gabe565.com/nightscout-menu-bar/internal/util"
 )
 
 var (
-	ErrHTTP        = errors.New("unexpected HTTP error")
-	ErrNotModified = errors.New("not modified")
-	ErrNoURL       = errors.New("please configure your Nightscout URL")
+	ErrNoCredentials   = errors.New("please configure your LibreLinkUp username and password")
+	ErrNoConnections   = errors.New("no LibreLinkUp connections found; make sure you are following someone in the LibreLinkUp app")
+	ErrPatientNotFound = errors.New("configured LibreLinkUp patient-id was not found")
+	ErrNoReading       = errors.New("LibreLinkUp has no current reading")
 )
 
 func NewFetch(conf *config.Config) *Fetch {
 	return &Fetch{
 		config: conf,
-		client: &http.Client{
-			Transport: util.NewUserAgentTransport("nightscout-menu-bar", conf.Version),
-			Timeout:   time.Minute,
-		},
+		client: librelinkup.New(&http.Client{
+			Timeout: time.Minute,
+		}),
 	}
 }
 
 type Fetch struct {
-	mu            sync.Mutex
-	config        *config.Config
-	client        *http.Client
-	url           string
-	tokenChecksum string
-	etag          string
+	mu        sync.Mutex
+	config    *config.Config
+	client    *librelinkup.Client
+	session   [sha256.Size]byte
+	patientID string
+	// rejected is set when LibreLinkUp rejects the configured credentials.
+	// Retrying the same credentials can lock the account, so they will not be retried until they change.
+	rejected bool
 }
 
 func (f *Fetch) Do(ctx context.Context) (*nightscout.Properties, error) {
@@ -50,119 +47,94 @@ func (f *Fetch) Do(ctx context.Context) (*nightscout.Properties, error) {
 	defer f.mu.Unlock()
 
 	start := time.Now()
-
-	if f.url == "" {
-		if err := f.updateURLLocked(); err != nil {
-			return nil, err
-		}
-	}
-
-	// Fetch JSON
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, f.url, nil)
-	if err != nil {
-		return nil, err
-	}
-	if f.etag != "" {
-		req.Header.Set("If-None-Match", f.etag)
-	}
-
-	if f.tokenChecksum != "" {
-		req.Header.Set("Api-Secret", f.tokenChecksum)
-	}
-
-	slog.Debug("Fetching data",
-		"etag", f.etag != "",
-		"secret", f.tokenChecksum != "",
-	)
-
-	resp, err := f.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_, _ = io.Copy(io.Discard, resp.Body)
-		_ = resp.Body.Close()
-	}()
-
-	switch resp.StatusCode {
-	case http.StatusNotModified:
-		slog.Debug("Data was not modified", "took", time.Since(start))
-		return nil, ErrNotModified
-	case http.StatusOK:
-		// Decode JSON
-		var properties nightscout.Properties
-		if err := json.NewDecoder(resp.Body).Decode(&properties); err != nil {
-			return nil, err
-		}
-
-		slog.Debug("Parsed response", "took", time.Since(start), "data", properties)
-
-		f.etag = resp.Header.Get("ETag")
-		return &properties, nil
-	default:
-		f.etag = ""
-		return nil, fmt.Errorf("%w: %d", ErrHTTP, resp.StatusCode)
-	}
-}
-
-func (f *Fetch) UpdateURL() error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.updateURLLocked()
-}
-
-func (f *Fetch) updateURLLocked() error {
 	data := f.config.Data()
+	creds := data.LibreLinkUp
+	if creds.Username == "" || creds.Password == "" {
+		return nil, ErrNoCredentials
+	}
 
-	u, err := BuildURL(data)
+	if session := sessionKey(creds); session != f.session {
+		slog.Debug("LibreLinkUp settings changed; starting new session")
+		f.client.Logout()
+		f.session = session
+		f.patientID = ""
+		f.rejected = false
+	}
+	if f.rejected {
+		return nil, fmt.Errorf("%w; update it in Preferences", librelinkup.ErrInvalidCredentials)
+	}
+
+	f.client.Version = data.Advanced.APIVersion
+
+	graph, err := f.fetchGraph(ctx, creds)
+	if errors.Is(err, librelinkup.ErrUnauthorized) {
+		// The session was revoked or expired early, so log in again once
+		f.client.Logout()
+		f.patientID = ""
+		graph, err = f.fetchGraph(ctx, creds)
+	}
 	if err != nil {
-		return err
+		if errors.Is(err, librelinkup.ErrInvalidCredentials) {
+			f.rejected = true
+		}
+		return nil, err
 	}
 
-	u.Path = path.Join(u.Path, "api", "v2", "properties", "bgnow,buckets,delta,direction")
-	f.url = u.String()
-	slog.Debug("Generated URL", "value", f.url)
-
-	if token := data.Token; token != "" {
-		rawChecksum := sha1.Sum([]byte(token)) //nolint:gosec
-		f.tokenChecksum = hex.EncodeToString(rawChecksum[:])
-		slog.Debug("Generated token checksum", "value", f.tokenChecksum)
-	} else {
-		f.tokenChecksum = ""
+	if graph.Connection.GlucoseMeasurement.FactoryTimestamp.IsZero() {
+		return nil, ErrNoReading
 	}
 
-	return nil
+	properties := NewProperties(graph)
+	slog.Debug("Parsed response", "took", time.Since(start), "data", properties)
+	return properties, nil
 }
 
-func (f *Fetch) Reset() {
-	f.mu.Lock()
-	defer f.mu.Unlock()
+func (f *Fetch) fetchGraph(ctx context.Context, creds config.LibreLinkUp) (*librelinkup.GraphData, error) {
+	if !f.client.LoggedIn() {
+		if err := f.client.Login(ctx, creds.Username, creds.Password, creds.Region); err != nil {
+			return nil, err
+		}
+	}
 
-	slog.Debug("Resetting fetch cache")
-	f.url = ""
-	f.tokenChecksum = ""
-	f.etag = ""
+	if f.patientID == "" {
+		connections, err := f.client.Connections(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		patientID, err := choosePatient(connections, creds.PatientID)
+		if err != nil {
+			return nil, err
+		}
+		f.patientID = patientID
+	}
+
+	return f.client.Graph(ctx, f.patientID)
 }
 
-func BuildURL(conf config.Data) (*url.URL, error) {
-	if conf.URL == "" {
-		return nil, ErrNoURL
+func choosePatient(connections []librelinkup.Connection, patientID string) (string, error) {
+	if len(connections) == 0 {
+		return "", ErrNoConnections
 	}
 
-	return url.Parse(conf.URL)
+	if patientID == "" {
+		if len(connections) > 1 {
+			for _, c := range connections {
+				slog.Info("Found LibreLinkUp connection", "name", c.FirstName+" "+c.LastName, "patient-id", c.PatientID)
+			}
+			slog.Warn("Multiple LibreLinkUp connections found; using the first one. Set librelinkup.patient-id to choose another.")
+		}
+		return connections[0].PatientID, nil
+	}
+
+	for _, c := range connections {
+		if c.PatientID == patientID {
+			return c.PatientID, nil
+		}
+	}
+	return "", ErrPatientNotFound
 }
 
-func BuildURLWithToken(conf config.Data) (*url.URL, error) {
-	u, err := BuildURL(conf)
-	if err != nil {
-		return u, err
-	}
-
-	if token := conf.Token; token != "" {
-		query := u.Query()
-		query.Set("token", conf.Token)
-		u.RawQuery = query.Encode()
-	}
-
-	return u, nil
+func sessionKey(creds config.LibreLinkUp) [sha256.Size]byte {
+	return sha256.Sum256([]byte(creds.Username + "\x00" + creds.Password + "\x00" + creds.Region + "\x00" + creds.PatientID))
 }

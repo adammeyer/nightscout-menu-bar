@@ -29,8 +29,7 @@ func (conf *Config) Data() Data {
 
 type Data struct {
 	Title       string      `toml:"title"        comment:"Tray title."`
-	URL         string      `toml:"url"          comment:"Nightscout URL. (required)"`
-	Token       string      `toml:"token"        comment:"Nightscout token. Using an access token is recommended instead of the API secret."`
+	LibreLinkUp LibreLinkUp `toml:"librelinkup"  comment:"LibreLinkUp account settings."`
 	Units       Unit        `toml:"units"        comment:"Blood sugar unit. (one of: mg/dL, mmol/L)"`
 	LastReading LastReading `toml:"last-reading" comment:"Disable parts of the menu bar text. Only supported on macOS and Linux."`
 	DynamicIcon DynamicIcon `toml:"dynamic-icon" comment:"Makes the tray icon show the current blood sugar reading."`
@@ -38,6 +37,13 @@ type Data struct {
 	Socket      Socket      `toml:"socket"       comment:"Exposes the latest reading to other applications over a local socket."`
 	Log         Log         `toml:"log"          comment:"Log configuration"`
 	Advanced    Advanced    `toml:"advanced"     comment:"Advanced settings."`
+}
+
+type LibreLinkUp struct {
+	Username  string `toml:"username"   comment:"LibreLinkUp email address. (required)"`
+	Password  string `toml:"password"   comment:"LibreLinkUp password. (required)"`
+	Region    string `toml:"region"     comment:"LibreLinkUp region. (one of: ae, ap, au, ca, de, eu, eu2, fr, jp, us, la, ru, cn)\nIf left blank, the region will be detected automatically."`
+	PatientID string `toml:"patient-id" comment:"Patient ID of the connection to follow. If left blank, the first connection will be used."`
 }
 
 type DynamicIcon struct {
@@ -77,9 +83,9 @@ type Log struct {
 }
 
 type Advanced struct {
-	FetchDelay       Duration `toml:"fetch-delay"       comment:"Time to wait before the next reading should be ready.\nIn testing, this seems to be about 20s behind, so the default is 30s to be safe.\nYour results may vary."`
-	FallbackInterval Duration `toml:"fallback-interval" comment:"Normally, readings will be fetched when ready (after ~5m).\nThis interval will be used if the next reading time cannot be estimated due to sensor warm-up, missed readings, errors, etc."`
-	RoundAge         bool     `toml:"round-age"         comment:"If enabled, the reading's age will be rounded up to the nearest minute.\nNightscout rounds the age, so enable this if you want the values to match."`
+	Interval   Duration `toml:"interval"    comment:"How often to fetch new readings from LibreLinkUp."`
+	APIVersion string   `toml:"api-version" comment:"LibreLinkUp app version sent to the API.\nOnly change this if LibreLinkUp starts rejecting requests with a version error."`
+	RoundAge   bool     `toml:"round-age"   comment:"If enabled, the reading's age will be rounded up to the nearest minute."`
 }
 
 const (

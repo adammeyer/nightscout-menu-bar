@@ -11,8 +11,8 @@ func New(conf *config.Config) Preferences {
 	item := systray.AddMenuItem("Preferences", "")
 	item.SetTemplateIcon(assets.Preferences, assets.Preferences)
 
-	url := NewURL(conf, item)
-	token := NewToken(conf, item)
+	username := NewUsername(conf, item)
+	password := NewPassword(conf, item)
 	units := NewUnits(conf, item)
 	item.AddSeparator()
 
@@ -33,8 +33,8 @@ func New(conf *config.Config) Preferences {
 
 	return Preferences{
 		MenuItem:         item,
-		URL:              url,
-		Token:            token,
+		Username:         username,
+		Password:         password,
 		Units:            units,
 		DynamicIcon:      dynamicIcon,
 		DynamicIconColor: dynamicIconColor,
@@ -45,8 +45,8 @@ func New(conf *config.Config) Preferences {
 
 type Preferences struct {
 	*systray.MenuItem
-	URL              URL
-	Token            Token
+	Username         Username
+	Password         Password
 	Units            Units
 	DynamicIcon      DynamicIcon
 	DynamicIconColor DynamicIconColor

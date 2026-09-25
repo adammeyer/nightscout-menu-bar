@@ -131,7 +131,7 @@ func TestReading_DisplayBg(t *testing.T) {
 	}{
 		{"95", args{config.UnitMgdl}, fields{Last: 95}, "95"},
 		{"LOW", args{config.UnitMgdl}, fields{Last: 39}, "LOW"},
-		{"HIGH", args{config.UnitMgdl}, fields{Last: 401}, "HIGH"},
+		{"HIGH", args{config.UnitMgdl}, fields{Last: 501}, "HIGH"},
 		{"mmol", args{config.UnitMmol}, fields{Last: 100}, "5.6"},
 	}
 	for _, tt := range tests {

@@ -15,7 +15,7 @@ const SocketFormatCSV = "csv"
 
 func New(opts ...Option) *Config {
 	data := &Data{
-		Title: "Nightscout",
+		Title: "LibreLinkUp",
 		Units: UnitMgdl,
 		LastReading: LastReading{
 			StaleThreshold: Duration{15 * time.Minute},
@@ -44,9 +44,9 @@ func New(opts ...Option) *Config {
 			Format: slogx.FormatAuto,
 		},
 		Advanced: Advanced{
-			FetchDelay:       Duration{30 * time.Second},
-			FallbackInterval: Duration{30 * time.Second},
-			RoundAge:         true,
+			Interval:   Duration{2 * time.Minute},
+			APIVersion: "4.16.0",
+			RoundAge:   true,
 		},
 	}
 

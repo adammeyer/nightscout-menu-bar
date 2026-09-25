@@ -33,10 +33,22 @@ func TestProperties_String(t *testing.T) {
 					Mills: Mills{time.Now()},
 					Sgvs:  []SGV{{Direction: "Flat"}},
 				},
-				Delta: Delta{Mgdl: 1},
+				Delta: Delta{Mgdl: 1, Times: Times{Recent: Mills{time.Now()}}},
 			},
 			args{config.New().Data()},
 			"100 → +1 [0m]",
+		},
+		{
+			"no delta",
+			fields{
+				Bgnow: Reading{
+					Last:  100,
+					Mills: Mills{time.Now()},
+					Sgvs:  []SGV{{Direction: "Flat"}},
+				},
+			},
+			args{config.New().Data()},
+			"100 → [0m]",
 		},
 	}
 	for _, tt := range tests {

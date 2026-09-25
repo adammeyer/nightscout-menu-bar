@@ -22,7 +22,7 @@ func (p Properties) String(data config.Data) string {
 		result.WriteString(p.Bgnow.Arrow(data.Arrows))
 	}
 
-	if !data.LastReading.HideDelta {
+	if !data.LastReading.HideDelta && p.Delta.Valid() {
 		if delta := p.Delta.Display(data.Units); delta != "" {
 			result.WriteRune(' ')
 			result.WriteString(delta)

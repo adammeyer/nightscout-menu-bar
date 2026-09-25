@@ -1,10 +1,12 @@
-# Nightscout Menu Bar
+# Libre Link Menu Bar
 
 [![Build](https://github.com/gabe565/nightscout-menu-bar/actions/workflows/build.yml/badge.svg)](https://github.com/gabe565/nightscout-menu-bar/actions/workflows/build.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/gabe565/nightscout-menu-bar)](https://goreportcard.com/report/github.com/gabe565/nightscout-menu-bar)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=gabe565_nightscout-menu-bar&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=gabe565_nightscout-menu-bar)
 
-A small application that displays live blood sugar data from Nightscout on your menu bar.
+A small application that displays live blood sugar data from [LibreLinkUp](https://www.librelinkup.com) on your menu bar.
+
+Readings are fetched directly from the LibreLinkUp API (the same API used by [nightscout-librelink-up](https://github.com/timoschlueter/nightscout-librelink-up)) every 2 minutes, so no Nightscout server is required.
 
 Works on Windows, MacOS, and Linux.
 
@@ -29,9 +31,11 @@ Automated builds are uploaded during the release process. See the [latest releas
 
 After launching Nightscout Menu Bar, you will need to open its tray menu, then hover over "Preferences" to configure the integration.
 
+The account must be following someone in the LibreLinkUp app. If it follows more than one person, the first connection is used unless `librelinkup.patient-id` is set in the configuration file.
+
 The preferences menu contains the following options:
-- Nightscout URL (required)
-- API Token
+- LibreLinkUp Username (required)
+- LibreLinkUp Password (required)
 - Units: mg/dL or mmol/L
 - Start on login
 - Write to a local file (see [`contrib/powerlevel10k`](contrib/powerlevel10k))
@@ -42,6 +46,9 @@ Additional configuration is available in a configuration file, which can be foun
 - **Linux:** `~/.config/nightscout-menu-bar/config.toml`
 
 An example configuration is available at [`config_example.toml`](config_example.toml).
+
+> [!NOTE]
+> The LibreLinkUp password is stored in plain text in the configuration file, which is only readable by your user.
 
 ## Contrib
 

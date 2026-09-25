@@ -1,11 +1,19 @@
 # Tray title.
-title = 'Nightscout'
-# Nightscout URL. (required)
-url = ''
-# Nightscout token. Using an access token is recommended instead of the API secret.
-token = ''
+title = 'LibreLinkUp'
 # Blood sugar unit. (one of: mg/dL, mmol/L)
 units = 'mg/dL'
+
+# LibreLinkUp account settings.
+[librelinkup]
+# LibreLinkUp email address. (required)
+username = ''
+# LibreLinkUp password. (required)
+password = ''
+# LibreLinkUp region. (one of: ae, ap, au, ca, de, eu, eu2, fr, jp, us, la, ru, cn)
+# If left blank, the region will be detected automatically.
+region = ''
+# Patient ID of the connection to follow. If left blank, the first connection will be used.
+patient-id = ''
 
 # Disable parts of the menu bar text. Only supported on macOS and Linux.
 [last-reading]
@@ -53,13 +61,10 @@ format = 'auto'
 
 # Advanced settings.
 [advanced]
-# Time to wait before the next reading should be ready.
-# In testing, this seems to be about 20s behind, so the default is 30s to be safe.
-# Your results may vary.
-fetch-delay = '30s'
-# Normally, readings will be fetched when ready (after ~5m).
-# This interval will be used if the next reading time cannot be estimated due to sensor warm-up, missed readings, errors, etc.
-fallback-interval = '30s'
+# How often to fetch new readings from LibreLinkUp.
+interval = '2m'
+# LibreLinkUp app version sent to the API.
+# Only change this if LibreLinkUp starts rejecting requests with a version error.
+api-version = '4.16.0'
 # If enabled, the reading's age will be rounded up to the nearest minute.
-# Nightscout rounds the age, so enable this if you want the values to match.
 round-age = true

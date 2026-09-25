@@ -8,8 +8,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// isolateConfig prevents tests from overwriting the real config file.
+func isolateConfig(t *testing.T) {
+	t.Helper()
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	t.Setenv("XDG_CONFIG_HOME", tmp)
+	t.Setenv("AppData", tmp)
+}
+
 func TestNew(t *testing.T) {
-	t.Parallel()
+	isolateConfig(t)
 	tray := New("")
 	assert.NotNil(t, tray)
 	assert.NotNil(t, tray.config)
@@ -17,7 +26,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestTray_onError(t *testing.T) {
-	t.Parallel()
+	isolateConfig(t)
 	tray := New("")
 
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
